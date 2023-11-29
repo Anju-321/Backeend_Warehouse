@@ -49,3 +49,78 @@
 //           });
 //         }
 //       }
+
+
+
+const Stock = require('../models/stockModel');
+const Movement = require('../models/movementModel');
+
+// Add stock
+exports.addStock = async (req, res) => {
+  try {
+    const { product, warehouse, quantity } = req.body;
+
+    // Validate input
+    if (!product || !warehouse || !quantity) {
+      return res.status(400).json({ error: 'Invalid input for adding stock.' });
+    }
+
+    // Check if the stock entry already exists
+    const existingStock = await Stock.findOne({ product, warehouse });
+
+    if (existingStock) {
+      // Update the existing stock entry
+      existingStock.stock += quantity;
+      await existingStock.save();
+    } else {
+      // Create a new stock entry
+      const newStock = new Stock({
+        product,
+        warehouse,
+        stock: quantity,
+      });
+      await newStock.save();
+    }
+
+    res.status(201).json({ message: 'Stock added successfully.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Get stock of a particular warehouse
+exports.getStockByWarehouse = async (req, res) => {
+  try {
+    const { warehouseId } = req.params;
+
+    // Validate warehouseId
+    if (!warehouseId) {
+      return res.status(400).json({ error: 'Invalid warehouse ID.' });
+    }
+
+    const stock = await Stock.find({ warehouse: warehouseId }).populate('product warehouse');
+    res.json(stock);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Get stock of a particular product
+exports.getStockByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    // Validate productId
+    if (!productId) {
+      return res.status(400).json({ error: 'Invalid product ID.' });
+    }
+
+    const stock = await Stock.find({ product: productId }).populate('product warehouse');
+    res.json(stock);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
