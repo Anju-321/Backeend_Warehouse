@@ -1,46 +1,78 @@
-// const User = require('../models/userModel');
+const User = require("../models/userModel");
+const handleResponse = require("../utils/response");
+const jwt = require("jsonwebtoken");
 
-// exports.registerUser = async (req, res) => {
-//   try {
-//     const { username, password, role } = req.body;
-//     const user = new User({
-//       username,
-//       password,
-//       role,
-      
-//     });
+exports.updateUser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { username, password, role, isActive } = req.body;
 
-//    await user.save();
-//     console.log(req.body);
+    const existingUser = await User.findById(userId);
+    if (!existingUser) {
+      return handleResponse(res, {
+        message: "User not found",
+        data: null,
+      });
+    }
 
-//     res.status(200).json({ message: 'User registered successfully' });
-//   } catch (error) {
-//     console.error(error);
-//     // next(error);
-//   }
-// };
+    existingUser.username = username;
+    existingUser.password = password; 
+    existingUser.role = role;
+    existingUser.isActive = isActive;
 
+    const updatedUser = await existingUser.save();
 
+    handleResponse(res, {
+      message: "User updated successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    handleResponse(res, {
+      message: "User update failed",
+      data: error.message,
+    });
+  }
+};
 
-// module.exports = (res, { code = 200, message, data, is_next } = {}) => {
-//   if (data) console.log(data);
+exports.getuser=async(req,res)=>{
+  try{
+    const user=await User.find()
+    handleResponse(res, {
+      message: "Users retrieved successfully",
+      data: user,
+    });
+  }catch(error){
+    handleResponse(res, {
+      message: "Cannot retrieve products",
+      data: error.message,
+    });
+  }
+};
 
-//   if (code != 200) {
-//     message = message ?? "Internal server error";
-//   }
-
-//   return res.status(code ?? 500).json({
-//     data,
-//     is_next,
-//     message,
-//   });
-// };
-
-// const saveData = await new UserRegisterData(RegisterData).save()
-// if (saveData) {
-//     return res.status(200).json({
-//         success: true,
-//         error: false,
-//         message: "Register success"
-//     })
-// }
+exports.getSingleuser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId) {
+      return handleResponse(res, {
+        message: "User ID is required",
+        data: null,
+      });
+    }
+    const singleUser = await User.findById(userId);
+    if (!singleUser) {
+      return handleResponse(res, {
+        message: "User not found",
+        data: null,
+      });
+    }
+    handleResponse(res, {
+      message: "Single user retrieved successfully",
+      data: singleUser,
+    });
+  } catch (error) {
+    handleResponse(res, {
+      message: "Cannot retrieve single user",
+      data: error.message,
+    });
+  }
+};
