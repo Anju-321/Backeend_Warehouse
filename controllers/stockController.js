@@ -1,126 +1,170 @@
-// const Stock = require("../models/stockModel");
-// const handleResponse = require("../utils/response");
-// const Product = require("../models/productModel");
-// const Warehouse = require("../models/warehouseModel");
+const Stock = require("../models/stockModel");
+const Warehouse = require("../models/warehouseModel");
+const Product = require("../models/productModel");
+const handleResponse = require("../utils/response");
 
-
-
-//  exports.createStock= async (req, res) => {
-//         const { product_id, Warehouse_id, stock } = req.body;
-
-//         try {
-//             const product = await Product.findById(product_id);
-//             const warehouse = await Warehouse.findById(Warehouse_id);
-
-//             if (!product && !warehouse) {
-//                 return res.status(400).json({ message: 'Product or Warehouse not found' });
-//             }
-
-//             const newStock = new Stock({
-//                 product_id,
-//                 Warehouse_id,
-//                 stock
-//             });
-
-//             const savedStock = await newStock.save();
-//             handleResponse(res, {
-//                 message: "added successfully",
-//                 data: savedStock,
-//               });
-//         } catch (error) {
-//             handleResponse(res, {
-//                 message: "Cannot add products",
-//                 data: error.message,
-//               });
-//         }
-//     }
-
-//     exports.getAllStocks = async (req, res) => {
-//         try {
-//           const stocks = await Stock.find().populate('product_id').populate('Warehouse_id');
-//           handleResponse(res, {
-//             message: "Stocks retrieved successfully",
-//             data: stocks,
-//           });
-//         } catch (error) {
-//           handleResponse(res, {
-//             message: "Cannot retrieve stocks",
-//             data: error.message,
-//           });
-//         }
-//       }
-
-
-
-const Stock = require('../models/stockModel');
-const Movement = require('../models/movementModel');
-
-// Add stock
 exports.addStock = async (req, res) => {
   try {
     const { product, warehouse, quantity } = req.body;
-
-    // Validate input
-    if (!product || !warehouse || !quantity) {
-      return res.status(400).json({ error: 'Invalid input for adding stock.' });
+    console.log(req.body);
+    if (!product || !warehouse || !quantity || isNaN(quantity)) {
+      return res.status(400).json({ error: "Invalid input for adding stock." });
     }
+     // Check if warehouse exists
+     const warehouseExists = await Warehouse.exists({ _id: warehouse,isActive:true });
 
-    // Check if the stock entry already exists
-    const existingStock = await Stock.findOne({ product, warehouse });
+     if (!warehouseExists) {
+       return res.status(404).json({ error: 'Specified warehouse does not exist.' });
+     }
+ 
+     // Check if product exists
+     const productExists = await Product.exists({ _id: product });
+ 
+     if (!productExists) {
+       return res.status(404).json({ error: 'Specified product does not exist.' });
+     }
 
-    if (existingStock) {
-      // Update the existing stock entry
-      existingStock.stock += quantity;
-      await existingStock.save();
-    } else {
-      // Create a new stock entry
-      const newStock = new Stock({
-        product,
-        warehouse,
-        stock: quantity,
-      });
-      await newStock.save();
-    }
+    
 
-    res.status(201).json({ message: 'Stock added successfully.' });
+    const updatedStock = await Stock.findOneAndUpdate(
+      { product, warehouse },
+      { $inc: { stock: parseInt(quantity) } },
+      { upsert: true, new: true }
+    );
+    handleResponse(res, {
+      message: "Stock added successfully",
+      data: updatedStock,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    handleResponse(res, {
+      message: "Cannot add stock",
+      data: error.message,
+    });
   }
 };
 
-// Get stock of a particular warehouse
+// exports.addStock = async (req, res) => {
+//   try {
+//     const { product, warehouse, quantity } = req.body;
+//     console.log(req.body);
+//     if (!product || !warehouse || !quantity || isNaN(quantity)) {
+//       return res.status(400).json({ error: "Invalid input for adding stock." });
+//     }
+//     const existingStock = await Stock.findOne({ product, warehouse });
+
+//     let updatedStock;
+//     if (existingStock) {
+//       existingStock.stock += parseInt(quantity);
+//       updatedStock = await existingStock.save();
+//     } else {
+//       const newStock = new Stock({
+//         product,
+//         warehouse,
+//         stock: parseInt(quantity),
+//       });
+//       updatedStock = await newStock.save();
+//     }
+
+//     handleResponse(res, {
+//       message: "Stock added successfully",
+//       data: updatedStock,
+//     });
+//   } catch (error) {
+//     console.error(error);
+
+//     handleResponse(res, {
+//       message: "Cannot add stock",
+//       data: error.message,
+//     });
+//   }
+// };
+
+exports.getAllStock = async (req, res) => {
+  try {
+    // Query all stock entries
+    const allStock = await Stock.find()
+      .populate("product")
+      .populate("warehouse");
+
+    handleResponse(res, {
+      message: "All stock entries retrieved successfully",
+      data: allStock,
+    });
+  } catch (error) {
+    console.error(error);
+
+    handleResponse(res, {
+      message: "Cannot get all stock entries",
+      data: error.message,
+    });
+  }
+};
+
 exports.getStockByWarehouse = async (req, res) => {
   try {
     const { warehouseId } = req.params;
 
-    // Validate warehouseId
     if (!warehouseId) {
-      return res.status(400).json({ error: 'Invalid warehouse ID.' });
+      return res.status(400).json({ error: "Invalid warehouse ID." });
     }
+     // Find all stock entries for the warehouse and populate product and warehouse details
+     const stockEntries = await Stock.find({ warehouse: warehouseId }).populate(
+      "product warehouse"
+    );
 
-    const stock = await Stock.find({ warehouse: warehouseId }).populate('product warehouse');
-    res.json(stock);
-  } catch (error) {
+    // Calculate total stock quantity for the warehouse
+    const totalStock = stockEntries.reduce((total, entry) => total + entry.stock, 0);
+
+    res.json({
+      message: `Stock entries for warehouse ${warehouseId} retrieved successfully`,
+      data: {
+        stockEntries,
+        totalStock,
+      },
+    });
+    
+  }catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-// Get stock of a particular product
-exports.getStockByProduct = async (req, res) => {
+//get stock of product by warehouse
+
+exports.getStockOfProductByWarehouse = async (req, res) => {
   try {
-    const { productId } = req.params;
+    const { warehouseId, productId } = req.params;
 
-    // Validate productId
-    if (!productId) {
-      return res.status(400).json({ error: 'Invalid product ID.' });
+    if (!warehouseId || !productId) {
+      return res
+        .status(400)
+        .json({ error: "Invalid warehouse ID or product ID." });
     }
 
-    const stock = await Stock.find({ product: productId }).populate('product warehouse');
-    res.json(stock);
+    // Find stock entry for a specific product in a specific warehouse and populate product and warehouse details
+    const stock = await Stock.findOne({
+      warehouse: warehouseId,
+      product: productId,
+    }).populate("product warehouse");
+
+    if (!stock) {
+      return res.status(404).json({
+        error: "Stock entry not found for the specified product and warehouse.",
+      });
+    }
+
+    handleResponse(res, {
+      message: `Stock entry for product ${productId} in warehouse ${warehouseId} retrieved successfully`,
+      data: stock,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    handleResponse(res, {
+      message: "Cannot get stock entry for the specified product and warehouse",
+      data: error.message,
+    });
   }
 };
+
+

@@ -12,7 +12,6 @@
 const mongoose = require('mongoose');
 
 const stockSchema = new mongoose.Schema({
-  id: { type: Number, required: true, unique: true },
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse', required: true },
   stock: { type: Number, default: 0 }

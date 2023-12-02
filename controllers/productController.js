@@ -3,20 +3,17 @@ const handleResponse = require("../utils/response");
 
 exports.addproduct = async (req, res) => {
   try {
-    const { productname,productid } = req.body;
-    
+    const { productname, productid } = req.body;
+
     const product = new Product({
       productname,
       productid,
-     
-     
     });
     const productdata = await product.save();
     handleResponse(res, {
       message: "Product added successfully",
       data: productdata,
     });
-   
   } catch (error) {
     handleResponse(res, {
       message: "Cannot Add Product",
@@ -24,7 +21,6 @@ exports.addproduct = async (req, res) => {
     });
   }
 };
-
 
 exports.getProduct = async (req, res) => {
   try {
@@ -43,35 +39,58 @@ exports.getProduct = async (req, res) => {
 
 exports.getSingleproduct = async (req, res) => {
   try {
-    const productId = req.params.productId;
-    if (!productId) {
-      return handleResponse(res, {
-        message: "Product ID is required",
-        data: null,
+    const {productid} = req.params;
+    console.log(req.params);
+
+    const product = await Product.findById( productid)
+
+    if (!product) {
+      return res.status(404).json({
+        message: 'Product not found',
       });
     }
-    const singleProduct = await Product.findById(productId);
-    if (!singleProduct) {
-      return handleResponse(res, {
-        message: "Product not found",
-        data: null,
-      });
-    }
-    handleResponse(res, {
-      message: "Single product retrieved successfully",
-      data: singleProduct,
+
+    res.json({
+      message: 'Single product retrieved successfully',
+      data: product,
     });
   } catch (error) {
-    handleResponse(res, {
-      message: "Cannot retrieve single product",
-      data: error.message,
+    console.error(error);
+    res.status(500).json({
+      message: 'Internal Server Error',
+      error: error.message,
     });
   }
-};
+}
+
+// exports.updateproduct = async (req, res) => {
+//   try {
+//     const productId = req.params.productId;
+//     const { productname } = req.body;
+//     const existingproduct = await Product.findById(productId);
+//     if (!existingproduct) {
+//       return handleResponse(res, {
+//         message: "Product not found",
+//         data: null,
+//       });
+//     }
+//     existingproduct.productname = productname;
+//     const updateproduct = await existingproduct.save();
+//     handleResponse(res, {
+//       message: "Product updated successfully",
+//       data: updateproduct,
+//     });
+//   } catch (error) {
+//     handleResponse(res, {
+//       message: "Product update failed",
+//       data: error.message,
+//     });
+//   }
+// };
 
 exports.updateproduct = async (req, res) => {
   try {
-    const productId = req.params.productId;
+    const {productId} = req.params;
     const { productname } = req.body;
     const existingproduct = await Product.findById(productId);
     if (!existingproduct) {

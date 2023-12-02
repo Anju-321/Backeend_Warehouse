@@ -5,15 +5,17 @@ const uuid = require("uuid");
 exports.registerUser = async (req, res) => {
   try {
     const { username, password, role, isActive } = req.body;
+    console.log(username);
     const userId = uuid.v4();
     const user = new User({
+      userId,
       username,
       password,
       role,
-      isActive,
-      userId
+      isActive,      
     });
-
+    // console.log(username,password,role);
+console.log(user)
     const saveddata = await user.save();
     handleResponse(res, {
       message: "User registered successfully",
