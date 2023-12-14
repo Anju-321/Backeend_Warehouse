@@ -14,11 +14,33 @@ exports.updateUser = async (req, res) => {
         data: null,
       });
     }
+    if (username !== undefined) {
+      existingUser.username = username;
+    }
 
-    existingUser.username = username;
-    existingUser.password = password; 
-    existingUser.role = role;
-    existingUser.isActive = isActive;
+    if (password !== undefined) {
+      existingUser.password = password;
+    }
+
+    if (role !== undefined) {
+      existingUser.role = role;
+    }
+
+    if (isActive !== undefined) {
+      existingUser.isActive = isActive;
+    }
+
+    if (
+      username === undefined &&
+      password === undefined &&
+      role === undefined &&
+      isActive === undefined
+    ) {
+      return handleResponse(res, {
+        message: "No new data provided for update",
+        data: null,
+      });
+    }
 
     const updatedUser = await existingUser.save();
 
@@ -33,6 +55,38 @@ exports.updateUser = async (req, res) => {
     });
   }
 };
+
+// exports.updateUser = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+//     const { username, password, role, isActive } = req.body;
+
+//     const existingUser = await User.findById(userId);
+//     if (!existingUser) {
+//       return handleResponse(res, {
+//         message: "User not found",
+//         data: null,
+//       });
+//     }
+
+//     existingUser.username = username;
+//     existingUser.password = password; 
+//     existingUser.role = role;
+//     existingUser.isActive = isActive;
+
+//     const updatedUser = await existingUser.save();
+
+//     handleResponse(res, {
+//       message: "User updated successfully",
+//       data: updatedUser,
+//     });
+//   } catch (error) {
+//     handleResponse(res, {
+//       message: "User update failed",
+//       data: error.message,
+//     });
+//   }
+// };
 
 exports.getuser=async(req,res)=>{
   try{

@@ -1,42 +1,78 @@
-const Movement = require('../models/movementModel');
-const Stock = require('../models/stockModel');
-const DeadStock=require('../models/deadstockModel')
+const Movement = require("../models/movementModel");
+const Stock = require("../models/stockModel");
+const DeadStock = require("../models/deadstockModel");
 const Warehouse = require("../models/warehouseModel");
 const Product = require("../models/productModel");
-const User=require("../models/userModel");
-
+const User = require("../models/userModel");
+const handleResponse = require("../utils/response");
 
 // Create a new movement
 exports.createMovement = async (req, res) => {
   try {
-    const { products, sourceWarehouse, destinationWarehouse, movementType, userId } = req.body;
+    const {
+      products,
+      sourceWarehouse,
+      destinationWarehouse,
+      movementType,
+      userId,
+    } = req.body;
+
+    console.log("data coming in reqst",req.body);
 
     // Validate input
-    if (!products || !sourceWarehouse || !destinationWarehouse || !movementType || !userId) {
-      return res.status(400).json({ error: 'Invalid input for movement creation.' });
+
+    if (
+      !products ||
+      !sourceWarehouse ||
+      !destinationWarehouse ||
+      !movementType ||
+      !userId
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid input for movement creation." });
     }
-     // Check if the userId exists in the User model and is active
+    // Check if the userId exists in the User model and is active
     const userExists = await User.exists({ _id: userId, isActive: true });
     // Check if warehouses exist
-    const sourceWarehouseExists = await Warehouse.exists({ _id: sourceWarehouse,isActive:true});
-    const destinationWarehouseExists = await Warehouse.exists({ _id: destinationWarehouse,isActive:true});
+    const sourceWarehouseExists = await Warehouse.exists({
+      _id: sourceWarehouse,
+      isActive: true,
+    });
+    const destinationWarehouseExists = await Warehouse.exists({
+      _id: destinationWarehouse,
+      isActive: true,
+    });
     if (!userExists) {
-      return res.status(404).json({ error: 'User does not exist' });
+      return res.status(404).json({ error: "User does not exist" });
     }
     if (!sourceWarehouseExists || !destinationWarehouseExists) {
-      return res.status(404).json({ error: 'One or more specified warehouses do not exist.' });
+      return res
+        .status(404)
+        .json({ error: "One or more specified warehouses do not exist." });
     }
 
     // Check if products exist
-    for (const product of products) {
-      const { product: productId } = product;
-      const productExists = await Product.exists({ _id: productId });
+    for (const item of products) {
+      const { product, quantity } = item;
+      
+      console.log("item   ",item);
 
-      if (!productExists) {
-        return res.status(404).json({ error: 'Specified product does not exist.' });
-      }
+      const productExist = await Stock.exists({
+        warehouse: new mongoose.Types.ObjectId(sourceWarehouse),
+        product: new mongoose.Types.ObjectId(product),
+        // stock: { $gte: quantity },
+      });
+
+      console.log("productexist  ",productExist);
+      
+
+      // if (!isQuantityAvailable) {
+      //   return res
+      //     .status(404)
+      //     .json({ error: "Specified product out of stcock." });
+      // }
     }
-   
 
     // Create the movement
     const newMovement = new Movement({
@@ -49,22 +85,31 @@ exports.createMovement = async (req, res) => {
     });
 
     // Save the movement to the database
+
     await newMovement.save();
+    await updateStockQuantities(
+      res,
+      products,
+      sourceWarehouse,
+      destinationWarehouse,
+      movementType
+    );
 
-    // Update stock quantities
-    await updateStockQuantities(products, sourceWarehouse, destinationWarehouse,movementType);
-
-    res.status(201).json(newMovement);
+    handleResponse(res, {
+      message: "Movement added successfully",
+      data: newMovement,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    handleResponse(res, {
+      message: "Cannot make a Movement",
+      data: error.message,
+    });
   }
 };
 
 
-
-
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require("uuid");
+const { default: mongoose } = require("mongoose");
 
 let movementCounter = 1;
 function generateUniqueMovementId() {
@@ -82,7 +127,13 @@ function generateUniqueDeadstockId() {
 
 
 // Function to update stock quantities
-async function updateStockQuantities(products, sourceWarehouse, destinationWarehouse, movementType) {
+async function updateStockQuantities(
+  res,
+  products,
+  sourceWarehouse,
+  destinationWarehouse,
+  movementType
+) {
   try {
     for (const product of products) {
       const { product: productId, quantity } = product;
@@ -91,34 +142,34 @@ async function updateStockQuantities(products, sourceWarehouse, destinationWareh
       await Stock.findOneAndUpdate(
         { product: productId, warehouse: sourceWarehouse },
         { $inc: { stock: -quantity } }
+       
       );
 
-      if (movementType === 'Transfer') {
+      if (movementType === "Transfer") {
         // Transfer: Increase stock in the destination warehouse
         await Stock.findOneAndUpdate(
           { product: productId, warehouse: destinationWarehouse },
           { $inc: { stock: quantity } },
           { upsert: true }
         );
-      } else if (movementType === 'Return') {
+      } else if (movementType === "Return") {
         // Return: Increase dead stock quantity
-        
-        await updateDeadStock(productId, quantity, sourceWarehouse);
+        await updateDeadStock(res, productId, quantity, sourceWarehouse);
       }
     }
   } catch (error) {
-    console.error('Error updating stock quantities:', error);
-    throw error;
+    handleResponse(res, {
+      message: "Error updating stock quantities",
+      data: error.message,
+    });
   }
 }
 
-
-
-async function updateDeadStock(productId, quantity, warehouse) {
+async function updateDeadStock(res, productId, quantity, warehouse) {
   try {
     const deadstockId = generateUniqueDeadstockId(); // Generate a unique deadstock ID
 
-    console.log('Updating dead stock:', productId, quantity, warehouse);
+    console.log("Updating dead stock:", productId, quantity, warehouse);
 
     await DeadStock.findOneAndUpdate(
       { product: { $elemMatch: { product: productId } }, warehouse: warehouse },
@@ -130,18 +181,26 @@ async function updateDeadStock(productId, quantity, warehouse) {
       { upsert: true }
     );
   } catch (error) {
-    console.error('Error updating dead stock:', error);
-    throw error;
+    handleResponse(res, {
+      message: "Error updating dead stock",
+      data: error.message,
+    });
   }
 }
 
-// Get all movements
+
 exports.getMovements = async (req, res) => {
   try {
     const movements = await Movement.find();
-    res.status(200).json(movements);
+    handleResponse(res, {
+      message: "Got Movements successfully",
+      data: movements,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    handleResponse(res, {
+      message: "Error retrieving movements",
+      data: error.message,
+    });
   }
 };

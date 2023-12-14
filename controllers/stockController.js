@@ -167,4 +167,91 @@ exports.getStockOfProductByWarehouse = async (req, res) => {
   }
 };
 
+// Function to get total stock per warehouse
+exports.gettotalstockByWarehouse = async (req, res) => {
+  try {
+    const result = await Stock.aggregate([
+      {
+        $group: {
+          _id: '$warehouse',
+          totalStock: { $sum: '$stock' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'warehouses', // Assuming your warehouse model is named 'Warehouse'
+          localField: '_id',
+          foreignField: '_id',
+          as: 'warehouseInfo'
+        }
+      },
+      {
+        $unwind: '$warehouseInfo'
+      },
+      {
+        $project: {
+          warehouse: '$warehouseInfo.warehousename',
+          totalStock: 1
+        }
+      }
+    ]);
+
+    return result;
+  } catch (error) {
+    console.error('Error getting total stock per warehouse:', error);
+    throw error;
+  }
+};
+exports.gettotalstockByWarehouse = async (req, res) => {
+  try {
+    // Get pagination parameters from query string
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const result = await Stock.aggregate([
+      {
+        $group: {
+          _id: '$warehouse',
+          totalStock: { $sum: '$stock' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'warehouses', // Assuming your warehouse model is named 'Warehouse'
+          localField: '_id',
+          foreignField: '_id',
+          as: 'warehouseInfo'
+        }
+      },
+      {
+        $unwind: '$warehouseInfo'
+      },
+      {
+        $project: {
+          warehouse: '$warehouseInfo.warehousename',
+          totalStock: 1
+        }
+      },
+      {
+        $skip: (page - 1) * limit
+      },
+      {
+        $limit: limit
+      }
+    ]);
+
+    // res.status(200).json(result);
+    handleResponse(res, {
+      message: `Stock retrieved successfully`,
+      data:result,
+    });
+  } catch (error) { console.error(error);
+    handleResponse(res, {
+      message: "Cannot get stock for warehouse",
+      data: error.message,
+    });
+  }
+};
+
+
 

@@ -30,6 +30,7 @@ console.log(user)
 };
 
 exports.userLogin = async (req, res) => {
+  console.log(req.body);
   try {
     const { username, password } = req.body;
     let userExist = await User.findOne({
@@ -40,7 +41,7 @@ exports.userLogin = async (req, res) => {
 
     if (userExist) {
       const token = jwt.sign(
-        { userId: userExist._id, role: userExist.role },
+        { userId: userExist._id, role: userExist.role ,username:userExist.username},
         process.env.SECRET_KEY,
         { expiresIn: "3h" }
       );
